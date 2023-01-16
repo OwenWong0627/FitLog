@@ -1,0 +1,33 @@
+# Docker Compose file Reference (https://docs.docker.com/compose/compose-file/)
+version: "3"
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      POSTGRES_SERVER_HOST: db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+  ui:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  db:
+    image: postgres:11.2-alpine
+    restart: unless-stopped
+    volumes:
+      - ./create_test_db.sql:/docker-entrypoint-initdb.d/create_test_db.sql
+    ports:
+      - "55634:5432"
