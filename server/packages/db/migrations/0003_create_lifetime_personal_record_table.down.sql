@@ -1,0 +1,1 @@
+DROP TABLE lifetime_personal_record;

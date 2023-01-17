@@ -6,27 +6,27 @@ import { createCookie } from "../utils"
 
 export default ({ history }) => {
   const [login, setLogin] = useState({
-    email: "",
+    username: "",
     password: "",
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState([])
 
-  const { email, password } = login
+  const { username, password } = login
 
   const handleChange = (e) =>
     setLogin({ ...login, [e.target.name]: e.target.value })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const { email, password } = login
+    const { username, password } = login
     try {
       setIsSubmitting(true)
       const res = await fetch(Endpoints.login, {
         method: "POST",
         body: JSON.stringify({
-          email,
+          username,
           password,
         }),
         headers: {
@@ -40,7 +40,7 @@ export default ({ history }) => {
         // ordinarily the setcookie from the server should suffice, however it has to be created here manually to bypass browsers
         // restriction on cross-site/non secure cookies on localhost.
         createCookie("token", token, 0.5)
-        history.push({ pathname: "/session", state: user })
+        history.push({ pathname: "/workouts", state: user })
       }
       setErrors(errors)
     } catch (e) {
@@ -57,10 +57,10 @@ export default ({ history }) => {
 
         <input
           className="input"
-          type="email"
-          placeholder="email"
-          value={email}
-          name="email"
+          type="username"
+          placeholder="username"
+          value={username}
+          name="username"
           onChange={handleChange}
           required
         />

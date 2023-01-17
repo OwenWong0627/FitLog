@@ -6,12 +6,12 @@ export default ({ history }) => {
   const [user, setUser] = useState({
     email: '',
     password: '',
-    name: '',
+    username: '',
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState([])
-  const { email, password, name } = user
+  const { email, password, username } = user
 
   const handleChange = (e) =>
     setUser({ ...user, [e.target.name]: e.target.value })
@@ -25,7 +25,7 @@ export default ({ history }) => {
         body: JSON.stringify({
           email,
           password,
-          name,
+          username,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -49,10 +49,10 @@ export default ({ history }) => {
         <h1>Register</h1>
         <input
           className="input"
-          type="name"
-          placeholder="Name"
-          value={name}
-          name="name"
+          type="username"
+          placeholder="Username"
+          value={username}
+          name="username"
           onChange={handleChange}
           required
         />

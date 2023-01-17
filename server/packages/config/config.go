@@ -18,6 +18,11 @@ const (
 	RUN_MIGRATION        = "RUN_MIGRATION"
 	POSTGRES_SERVER_HOST = "POSTGRES_SERVER_HOST"
 	ENVIRONEMT           = "ENV"
+	USER_POOLID          = "USER_POOLID"
+	APP_CLIENTID         = "APP_CLIENTID"
+	APP_CLIENTSECRET     = "APP_CLIENTSECRET"
+	AWS_ACCESS_KEY       = "AWS_ACCESS_KEY"
+	AWS_SECRET_KEY       = "AWS_SECRET_KEY"
 )
 
 type ConfigType map[string]string
@@ -30,6 +35,11 @@ var Config = ConfigType{
 	SERVER_PORT:          "",
 	JWT_KEY:              "",
 	RUN_MIGRATION:        "",
+	USER_POOLID:          "",
+	APP_CLIENTID:         "",
+	APP_CLIENTSECRET:     "",
+	AWS_ACCESS_KEY:       "",
+	AWS_SECRET_KEY:       "",
 	POSTGRES_SERVER_HOST: "localhost",
 }
 
@@ -52,6 +62,11 @@ func InitConfig() {
 		CLIENT_URL:        true,
 		SERVER_PORT:       true,
 		RUN_MIGRATION:     true,
+		USER_POOLID:       true,
+		APP_CLIENTID:      true,
+		APP_CLIENTSECRET:  true,
+		AWS_ACCESS_KEY:    true,
+		AWS_SECRET_KEY:    true,
 	}
 
 	for key := range Config {

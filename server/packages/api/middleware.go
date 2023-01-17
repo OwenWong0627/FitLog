@@ -3,6 +3,7 @@ package api
 import (
 	"goapp/packages/config"
 	"net/http"
+	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt"
@@ -13,6 +14,7 @@ func AuthorizeSession(c *fiber.Ctx) error {
 	if tokenStr == "" {
 		return c.SendStatus(http.StatusUnauthorized)
 	}
+	fmt.Println(tokenStr)
 
 	claims, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		return []byte(config.Config[config.JWT_KEY]), nil

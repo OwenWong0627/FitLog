@@ -1,22 +1,15 @@
 package db
 
 import (
-	"database/sql"
+	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 )
 
-type ResetPassword struct {
-	ID              int    `json:"id"`
-	Password        string `json:"password"`
-	ConfirmPassword string `json:"confirm_password"`
-}
-
-type Login struct {
-	Password string `json:"password,omitempty"`
-	Email    string `json:"email,omitempty"`
-}
-
-type CreateReset struct {
-	Email string `json:"email"`
+type App struct {
+	CognitoClient   *cognitoidentityprovider.CognitoIdentityProvider
+	UserPoolID      string
+	AppClientID     string
+	AppClientSecret string
+	Token           string
 }
 
 type User struct {
@@ -28,11 +21,17 @@ type User struct {
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
-func (user *User) UserExists(dbConn *sql.DB) bool {
-	rows, err := dbConn.Query(GetUserByEmailQuery, user.Email)
-	if err != nil || !rows.Next() {
-		return false
-	}
+type ResetPassword struct {
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirm_password"`
+}
 
-	return true
+type UserConfirmationCode struct {
+	ConfirmationCode string `json:"confirmationCode" validate:"required"`
+	User             User   `json:"user" validate:"required"`
+}
+
+type Response struct {
+	Error error `json:"error"`
 }

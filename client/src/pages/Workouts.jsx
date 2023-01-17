@@ -3,7 +3,7 @@ import { Endpoints } from "../api"
 import { deleteCookie } from "../utils"
 import Errors from "../components/Errors"
 
-const Session = ({ history }) => {
+const Workouts = ({ history }) => {
   const [user, setUser] = useState(null)
   const [isFetching, setIsFetching] = useState(false)
   const [errors, setErrors] = useState([])
@@ -16,7 +16,7 @@ const Session = ({ history }) => {
   const getUserInfo = async () => {
     try {
       setIsFetching(true)
-      const res = await fetch(Endpoints.session, {
+      const res = await fetch(Endpoints.workouts, {
         method: "GET",
         credentials: "include",
         headers,
@@ -76,4 +76,4 @@ const Session = ({ history }) => {
   )
 }
 
-export default Session
+export default Workouts
