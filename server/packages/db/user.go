@@ -1,17 +1,5 @@
 package db
 
-import (
-	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
-)
-
-type App struct {
-	CognitoClient   *cognitoidentityprovider.CognitoIdentityProvider
-	UserPoolID      string
-	AppClientID     string
-	AppClientSecret string
-	Token           string
-}
-
 type User struct {
 	ID        string `json:"id,omitempty"`
 	Password  string `json:"password,omitempty"`

@@ -2,45 +2,59 @@ package api
 
 import (
 	"crypto/hmac"
+	"crypto/rsa"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
-	"github.com/apex/log"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
 	"goapp/packages/config"
 	"goapp/packages/db"
-	"database/sql"
+	"io/ioutil"
+	"math/big"
 	"net/http"
-	"time"
-	"fmt"
 
+	"github.com/apex/log"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
+	cognito "github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
-	_ "github.com/lib/pq"
 	"github.com/golang-jwt/jwt"
+	_ "github.com/lib/pq"
 )
-type MyApp db.App
+
 type MyUser db.User
 type MyResponse db.Response
 
-type Claims struct {
-	db.User
-	jwt.StandardClaims
+type App struct {
+	CognitoClient   *cognito.CognitoIdentityProvider
+	CognitoRegion   string
+	UserPoolID      string
+	AppClientID     string
+	AppClientSecret string
+	jwk             *JWK
+	jwkURL          string
+	Token           string
+}
+
+type KeySet struct {
+	Alg string `json:"alg"`
+	E   string `json:"e"`
+	Kid string `json:"kid"`
+	Kty string `json:"kty"`
+	N   string `json:"n"`
+}
+
+type JWK struct {
+	Keys []KeySet `json:"keys"`
 }
 
 var server *fiber.App
-var svc *cognitoidentityprovider.CognitoIdentityProvider
-
-func WithDB(fn func(c *fiber.Ctx, db *sql.DB) error, db *sql.DB) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		return fn(c, db)
-	}
-}
-
 
 func StartServer() {
 	// Connect to the PostgreSQL database
@@ -60,28 +74,33 @@ func StartServer() {
 			log.WithField("reason", err.Error()).Fatal("db migration failed")
 		}
 	}
-	
+
 	// Create a new session with the AWS SDK and instantiate a new Cognito client
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		Config: aws.Config{
-			Region: aws.String("us-east-1"),
+			Region:      aws.String("us-east-1"),
 			Credentials: credentials.NewStaticCredentials(config.Config[config.AWS_ACCESS_KEY], config.Config[config.AWS_SECRET_KEY], ""),
 		},
 		SharedConfigState: session.SharedConfigEnable,
 	}))
-
-	svc = cognitoidentityprovider.New(sess)
 
 	userPoolID := config.Config[config.USER_POOLID]
 	appClientID := config.Config[config.APP_CLIENTID]
 	appClientSecret := config.Config[config.APP_CLIENTSECRET]
 
 	// Fill App structure with environment keys and session generated
-	a := MyApp{
-		CognitoClient:   svc,
+	a := App{
+		CognitoClient:   cognito.New(sess),
+		CognitoRegion:   "us-east-1",
 		UserPoolID:      userPoolID,
 		AppClientID:     appClientID,
 		AppClientSecret: appClientSecret,
+	}
+
+	a.jwkURL = fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s/.well-known/jwks.json", a.CognitoRegion, a.UserPoolID)
+	jwkerr := a.CacheJWK()
+	if jwkerr != nil {
+		log.WithField("reason", err.Error()).Fatal("caching jwk failed")
 	}
 
 	// Set up HTTP server with fiber
@@ -99,16 +118,13 @@ func StartServer() {
 		ExposeHeaders:    "Set-Cookie",
 	}))
 
-	// public
-	api.Get("/ping", Pong)
-
 	api.Post("/login", WithDB(a.Login, conn))
 	api.Post("/register", WithDB(a.CreateUser, conn))
 	// api.Post("/otp", OTP)
 	api.Get("/logout", a.Logout)
 
 	// authed routes
-	api.Get("/workouts", AuthorizeSession, WithDB(Workouts, conn))
+	api.Get("/workouts", WithDB(a.Workouts, conn))
 	server = app
 	serverErr := server.Listen(port)
 	if serverErr != nil {
@@ -132,11 +148,7 @@ func computeSecretHash(clientSecret string, username string, clientId string) st
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
-func Pong(c *fiber.Ctx) error {
-	return c.SendString("pong")
-}
-
-func (a *MyApp) CreateUser(c *fiber.Ctx, dbConn *sql.DB) error {
+func (a *App) CreateUser(c *fiber.Ctx, dbConn *sql.DB) error {
 
 	r := new(MyResponse)
 	u := new(MyUser)
@@ -145,7 +157,7 @@ func (a *MyApp) CreateUser(c *fiber.Ctx, dbConn *sql.DB) error {
 	if err := c.BodyParser(u); err != nil {
 		return c.Status(http.StatusBadRequest).SendString(err.Error())
 	}
-	
+
 	// Check for Duplicate usernames
 	if err := dbConn.QueryRow(db.GetUserByUsernameQuery, u.Username).Scan(&u); err != nil {
 		if err != sql.ErrNoRows {
@@ -160,18 +172,17 @@ func (a *MyApp) CreateUser(c *fiber.Ctx, dbConn *sql.DB) error {
 		}
 	}
 
-	user := &cognitoidentityprovider.SignUpInput{
+	user := &cognito.SignUpInput{
 		Username: aws.String(u.Username),
 		Password: aws.String(u.Password),
 		ClientId: aws.String(a.AppClientID),
-		UserAttributes: []*cognitoidentityprovider.AttributeType{
+		UserAttributes: []*cognito.AttributeType{
 			{
 				Name:  aws.String("email"),
 				Value: aws.String(u.Email),
 			},
 		},
 	}
-	fmt.Println(user)
 
 	secretHash := computeSecretHash(a.AppClientSecret, u.Username, a.AppClientID)
 	user.SecretHash = aws.String(secretHash)
@@ -184,53 +195,51 @@ func (a *MyApp) CreateUser(c *fiber.Ctx, dbConn *sql.DB) error {
 
 	_, r.Error = dbConn.Query(db.CreateUserQuery, user.Username, user.UserAttributes[0].Value)
 	if r.Error != nil {
-			// handle error
-			return c.Status(http.StatusUnauthorized).JSON(r)
+		// handle error
+		return c.Status(http.StatusUnauthorized).JSON(r)
 	}
 
 	return c.JSON(&fiber.Map{"success": true})
 }
 
-
-
-func Workouts(c *fiber.Ctx, dbConn *sql.DB) error {
-	tokenUser := c.Locals("user").(*jwt.Token)
-	claims := tokenUser.Claims.(jwt.MapClaims)
-	fmt.Println("hi3")
-	fmt.Println(claims)
-	userName, ok := claims["username"].(string)
-
-	if !ok {
-		fmt.Println("hi")
-		fmt.Println(claims)
-		// fmt.Println(claims["email"].(string))
+func (a *App) Workouts(c *fiber.Ctx, dbConn *sql.DB) error {
+	tokenString := c.Get("Authorization")
+	if tokenString == "" {
 		return c.SendStatus(http.StatusUnauthorized)
 	}
-	fmt.Println("hi2")
-	fmt.Println(claims)
+
+	token, err := a.ParseJWT(tokenString)
+	if err != nil {
+		return c.Status(http.StatusBadRequest).SendString(err.Error())
+	}
+
+	if !token.Valid {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"success": false, "errors": []string{"Invalid Token"}})
+	}
+
+	claims := token.Claims.(jwt.MapClaims)
+	userName, ok := claims["cognito:username"].(string)
+
+	if !ok {
+		return c.SendStatus(http.StatusUnauthorized)
+	}
 	user := &db.User{}
 	if err := dbConn.QueryRow(db.GetUserByUsernameQuery, userName).
 		Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
-			fmt.Println("hi1")
-			fmt.Println(user)
 			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"success": false, "errors": []string{"User DNE"}})
 		}
 	}
+
 	return c.JSON(&fiber.Map{"success": true, "user": user})
 }
 
-
-
-func (a *MyApp) Login(c *fiber.Ctx, dbConn *sql.DB) error {
+func (a *App) Login(c *fiber.Ctx, dbConn *sql.DB) error {
 	u := new(MyUser)
-	// user := &db.User{}
-	
+
 	if err := c.BodyParser(u); err != nil {
 		return err
 	}
-
-	fmt.Println(u)
 
 	params := map[string]*string{
 		"USERNAME": aws.String(u.Username),
@@ -240,7 +249,7 @@ func (a *MyApp) Login(c *fiber.Ctx, dbConn *sql.DB) error {
 	secretHash := computeSecretHash(a.AppClientSecret, u.Username, a.AppClientID)
 	params["SECRET_HASH"] = aws.String(secretHash)
 
-	authTry := &cognitoidentityprovider.InitiateAuthInput{
+	authTry := &cognito.InitiateAuthInput{
 		AuthFlow: aws.String("USER_PASSWORD_AUTH"),
 		AuthParameters: map[string]*string{
 			"USERNAME":    aws.String(*params["USERNAME"]),
@@ -252,12 +261,12 @@ func (a *MyApp) Login(c *fiber.Ctx, dbConn *sql.DB) error {
 
 	authResp, err := a.CognitoClient.InitiateAuth(authTry)
 	if err != nil {
-		fmt.Println(err)
 		return c.Status(http.StatusInternalServerError).JSON(authResp)
 	}
 
+	dbConn.Exec(db.UpdateLoginTime, u.Username)
+
 	userFetch := &db.User{}
-	fmt.Println(u.Username)
 	if err := dbConn.QueryRow(db.GetUserByUsernameQuery, u.Username).
 		Scan(&userFetch.ID, &userFetch.Username, &userFetch.Email, &userFetch.CreatedAt, &userFetch.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
@@ -265,46 +274,106 @@ func (a *MyApp) Login(c *fiber.Ctx, dbConn *sql.DB) error {
 		}
 	}
 
-	// proceed here if login is successful, on the AWS side
-	// Set up cookies to set up log in duration
-	//expiration time of the token ->30 mins
-	expirationTime := time.Now().Add(30 * time.Minute)
+	a.Token = *authResp.AuthenticationResult.IdToken
 
-	claims := &Claims{
-		User: *userFetch,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expirationTime.Unix(),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	var jwtKey = []byte(config.Config[config.JWT_KEY])
-	tokenValue, err := token.SignedString(jwtKey)
-
-	if err != nil {
-		return err
-	}
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "token",
-		Value:    tokenValue,
-		Expires:  expirationTime,
-		Domain:   config.Config[config.CLIENT_URL],
-		HTTPOnly: true,
-	})
-
-	a.Token = *authResp.AuthenticationResult.AccessToken
-	return c.JSON(&fiber.Map{"success": true, "user": claims.User, "token": tokenValue, "authResp": authResp})
+	return c.JSON(&fiber.Map{"success": true, "user": *userFetch, "token": a.Token, "authResp": authResp})
 }
 
-
-
-func (a *MyApp) Logout(c *fiber.Ctx) error {
-	logoutURI := "https://exampleusers.auth.na-east-1.amazoncognito.com/logout?" + "client_id=" + a.AppClientID + "&logout_uri=https://tiruma.io"
+func (a *App) Logout(c *fiber.Ctx) error {
+	// URI must change depending on which platform the app is hosted on
+	logoutURI := "https://mydomain.auth.us-east-1.amazoncognito.com/logout?" + "client_id=" + a.AppClientID + "&logout_uri=" + config.CLIENT_URL + "login"
+	fmt.Println(logoutURI)
 	_, err := http.Get(logoutURI)
 	if err != nil {
 		return c.Status(http.StatusBadRequest).SendString(err.Error())
 	}
 
-	return c.SendStatus(http.StatusOK)
+	return c.JSON(&fiber.Map{"success": true})
+}
+
+func WithDB(fn func(c *fiber.Ctx, db *sql.DB) error, db *sql.DB) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		return fn(c, db)
+	}
+}
+
+// MapKeys indexes each KeySet against its KID
+func (jwk *JWK) MapKeys() map[string]KeySet {
+	keymap := make(map[string]KeySet)
+	for _, keys := range jwk.Keys {
+		keymap[keys.Kid] = keys
+	}
+	return keymap
+}
+
+func (a *App) CacheJWK() error {
+	req, err := http.NewRequest("GET", a.jwkURL, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Accept", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	jwk := new(JWK)
+	err = json.Unmarshal(body, jwk)
+	if err != nil {
+		return err
+	}
+
+	a.jwk = jwk
+	return nil
+}
+
+func (a *App) ParseJWT(tokenString string) (*jwt.Token, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		kid, ok := token.Header["kid"].(string)
+		if !ok {
+			return nil, fmt.Errorf("getting kid; not a string")
+		}
+		keymap := a.jwk.MapKeys()
+		keyset, ok := keymap[kid]
+		if !ok {
+			return nil, fmt.Errorf("keyset not found for kid %s", kid)
+		}
+		key := convertKey(keyset.E, keyset.N)
+		return key, nil
+	})
+	if err != nil {
+		return token, fmt.Errorf("parsing jwt; %w", err)
+	}
+
+	return token, nil
+}
+
+func convertKey(rawE, rawN string) *rsa.PublicKey {
+	decodedE, err := base64.RawURLEncoding.DecodeString(rawE)
+	if err != nil {
+		panic(err)
+	}
+	if len(decodedE) < 4 {
+		ndata := make([]byte, 4)
+		copy(ndata[4-len(decodedE):], decodedE)
+		decodedE = ndata
+	}
+	pubKey := &rsa.PublicKey{
+		N: &big.Int{},
+		E: int(binary.BigEndian.Uint32(decodedE[:])),
+	}
+	decodedN, err := base64.RawURLEncoding.DecodeString(rawN)
+	if err != nil {
+		panic(err)
+	}
+	pubKey.N.SetBytes(decodedN)
+	return pubKey
 }
