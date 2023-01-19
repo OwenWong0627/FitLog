@@ -30,6 +30,7 @@ import (
 
 type MyUser db.User
 type MyResponse db.Response
+type MyOTP db.OTP
 
 type App struct {
 	CognitoClient   *cognito.CognitoIdentityProvider
@@ -120,7 +121,7 @@ func StartServer() {
 
 	api.Post("/login", WithDB(a.Login, conn))
 	api.Post("/register", WithDB(a.CreateUser, conn))
-	// api.Post("/otp", OTP)
+	api.Post("/otp", a.OTP)
 	api.Get("/logout", a.Logout)
 
 	// authed routes
@@ -202,6 +203,33 @@ func (a *App) CreateUser(c *fiber.Ctx, dbConn *sql.DB) error {
 	return c.JSON(&fiber.Map{"success": true})
 }
 
+func (a *App) OTP(c *fiber.Ctx) error {
+	r := new(MyResponse)
+	o := new(MyOTP)
+
+	if err := c.BodyParser(o); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"success": false, "errors": []string{err.Error()}})
+	}
+	fmt.Println(o.OTP)
+
+	user := &cognito.ConfirmSignUpInput{
+		ConfirmationCode: aws.String(o.OTP),
+		Username:         aws.String(o.Username),
+		ClientId:         aws.String(a.AppClientID),
+	}
+
+	secretHash := computeSecretHash(a.AppClientSecret, o.Username, a.AppClientID)
+	user.SecretHash = aws.String(secretHash)
+
+	_, r.Error = a.CognitoClient.ConfirmSignUp(user)
+	if r.Error != nil {
+		fmt.Println(r.Error)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"success": false, "errors": []string{r.Error.Error()}})
+	}
+
+	return c.JSON(&fiber.Map{"success": true, "response": r})
+}
+
 func (a *App) Workouts(c *fiber.Ctx, dbConn *sql.DB) error {
 	tokenString := c.Get("Authorization")
 	if tokenString == "" {
@@ -260,8 +288,9 @@ func (a *App) Login(c *fiber.Ctx, dbConn *sql.DB) error {
 	}
 
 	authResp, err := a.CognitoClient.InitiateAuth(authTry)
+
 	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(authResp)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"success": false, "errors": []string{err.Error()}})
 	}
 
 	dbConn.Exec(db.UpdateLoginTime, u.Username)

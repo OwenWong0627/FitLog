@@ -23,3 +23,8 @@ type UserConfirmationCode struct {
 type Response struct {
 	Error error `json:"error"`
 }
+
+type OTP struct {
+	Username string `json:"username"`
+	OTP      string `json:"otp"`
+}

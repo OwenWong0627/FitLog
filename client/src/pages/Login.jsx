@@ -43,6 +43,7 @@ export default ({ history }) => {
         history.push({ pathname: "/workouts", state: user })
       }
       setErrors(errors)
+      if (errors[0].startsWith("UserNotConfirmedException")) history.push("/otp")
     } catch (e) {
       setErrors([e.toString()])
     } finally {

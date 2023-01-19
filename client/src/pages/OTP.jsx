@@ -4,14 +4,13 @@ import Errors from '../components/Errors'
 
 export default ({ history }) => {
   const [user, setUser] = useState({
-    email: '',
-    password: '',
     username: '',
+    otp: '',
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState([])
-  const { email, password, username } = user
+  const { username, otp } = user
 
   const handleChange = (e) =>
     setUser({ ...user, [e.target.name]: e.target.value })
@@ -20,12 +19,11 @@ export default ({ history }) => {
     e.preventDefault()
     try {
       setIsSubmitting(true)
-      const res = await fetch(Endpoints.register, {
+      const res = await fetch(Endpoints.otp, {
         method: 'POST',
         body: JSON.stringify({
-          email,
-          password,
           username,
+          otp,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -33,7 +31,7 @@ export default ({ history }) => {
       })
       const { success, errors = [] } = await res.json()
 
-      if (success) history.push('/otp')
+      if (success) history.push('/login')
 
       setErrors(errors)
     } catch (e) {
@@ -46,7 +44,7 @@ export default ({ history }) => {
   return (
     <form onSubmit={handleSubmit}>
       <div className="wrapper">
-        <h1>Register</h1>
+        <h1>Please Check Your Email and Verify your Account to gain access</h1>
         <input
           className="input"
           type="username"
@@ -58,25 +56,16 @@ export default ({ history }) => {
         />
         <input
           className="input"
-          type="email"
-          placeholder="Email"
-          value={email}
-          name="email"
-          onChange={handleChange}
-          required
-        />
-        <input
-          className="input"
-          type="password"
-          placeholder="Password"
-          value={password}
-          name="password"
+          type="otp"
+          placeholder="OTP"
+          value={otp}
+          name="otp"
           onChange={handleChange}
           required
         />
 
         <button disabled={isSubmitting} onClick={handleSubmit}>
-          {isSubmitting ? '.....' : 'Sign Up'}
+          {isSubmitting ? '.....' : 'Verify'}
         </button>
         <br />
         <a href="/login">{'login'}</a>

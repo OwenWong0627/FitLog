@@ -70,7 +70,7 @@ const Workouts = ({ history }) => {
           </div>
         )}
 
-        <Errors errors={errors} />
+      <div>fetching details...</div>
       </div>
     </div>
   )
