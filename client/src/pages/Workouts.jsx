@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { Endpoints } from "../api"
+import { Endpoints } from "../api/endpoints"
 import { deleteCookie } from "../utils"
 import Errors from "../components/Errors"
 

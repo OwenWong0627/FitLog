@@ -1,6 +1,6 @@
 import React, { useState } from "react"
 
-import { Endpoints } from "../api"
+import { Endpoints } from "../api/endpoints"
 import Errors from "../components/Errors"
 import { createCookie } from "../utils"
 
