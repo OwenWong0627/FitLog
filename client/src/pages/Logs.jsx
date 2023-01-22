@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { Endpoints } from "../api/endpoints";
 import Searchbar from "../components/Searchbar";
 import { deleteCookie } from "../utils";
+import Checkbox from "../components/Checkbox";
 // import Errors from "../components/Errors"
 
-const Workouts = ({ history }) => {
+const Logs = ({ history }) => {
     const [user, setUser] = useState(null);
     const [isFetching, setIsFetching] = useState(false);
     const [errors, setErrors] = useState([]);
@@ -78,4 +79,4 @@ const Workouts = ({ history }) => {
     );
 };
 
-export default Workouts;
+export default Logs;
