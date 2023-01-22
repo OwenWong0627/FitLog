@@ -10,6 +10,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.15.0
 	github.com/joho/godotenv v1.4.0
 	github.com/lib/pq v1.10.0
+	google.golang.org/genproto v0.0.0-20210726143408-b02e89920bf0
 )
 
 require (
@@ -27,4 +28,5 @@ require (
 	golang.org/x/net v0.4.0 // indirect
 	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/tools v0.1.12 // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 )

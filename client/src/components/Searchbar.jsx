@@ -8,6 +8,7 @@ import {
     ComboboxOption,
 } from "@reach/combobox";
 import "@reach/combobox/styles.css";
+import Counter from "./Counter";
 
 function useExerciseSearch(exerciseInput) {
     console.log(exerciseInput);
@@ -50,20 +51,66 @@ async function fetchExercises(input) {
     return result;
 }
 
-const Searchbar = () => {
+const Searchbar = ({ userID }) => {
     const [exerciseInput, setExerciseInput] = useState("");
     const exercises = useExerciseSearch(exerciseInput);
+    const [repCount, setRepCount] = useState(0);
+    const [weight, setWeight] = useState(0);
+    // const [weightSystem, setWeightSystem] = useState("lb");
+
+    const recordRepData = (i) => {
+        console.log(i);
+        setRepCount(i);
+    };
+    const recordWeightData = (i) => {
+        console.log(i);
+        setWeight(i);
+    };
 
     const handleSearchTermChange = (event) => {
         setExerciseInput(event.target.value);
     };
 
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        console.log(exerciseInput);
+        try {
+            const res = await fetch(Endpoints.addWorkout, {
+                method: "POST",
+                body: JSON.stringify({
+                    UserID: parseInt(userID),
+                    Exercise: exerciseInput,
+                    Reps: repCount,
+                    Weightlbs: weight,
+                    Weightkg: Math.round((weight * 100.0) / 2.205) / 100,
+                }),
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+
+            const { success } = await res.json();
+            if (success) {
+                console.log("hi");
+            }
+        } catch (e) {
+            console.log(e.toString());
+        }
+    };
+
     return (
         <div>
-            <Combobox aria-label="Exercises">
+            <Combobox
+                onSelect={(exercise) => {
+                    console.log(exercise);
+                    setExerciseInput(exercise);
+                }}
+                aria-label="Exercises"
+            >
                 <ComboboxInput
                     className="exercise-search-input"
                     onChange={handleSearchTermChange}
+                    autocomplete={true}
                 />
                 {exercises && (
                     <ComboboxPopover className="shadow-popup">
@@ -84,6 +131,13 @@ const Searchbar = () => {
                     </ComboboxPopover>
                 )}
             </Combobox>
+            <form onSubmit={handleSubmit}>
+                <Counter
+                    recordRepData={recordRepData}
+                    recordWeightData={recordWeightData}
+                />
+                <button type="submit">Add Workout</button>
+            </form>
         </div>
     );
 };

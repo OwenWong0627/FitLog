@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Endpoints } from "../api/endpoints";
 import Searchbar from "../components/Searchbar";
 import { deleteCookie } from "../utils";
-import Checkbox from "../components/Checkbox";
+// import Checkbox from "../components/Checkbox";
 // import Errors from "../components/Errors"
 
 const Logs = ({ history }) => {
     const [user, setUser] = useState(null);
     const [isFetching, setIsFetching] = useState(false);
+    const [workouts, setWorkouts] = useState([]);
     const [errors, setErrors] = useState([]);
 
     const headers = {
@@ -30,6 +31,15 @@ const Logs = ({ history }) => {
             setErrors(errors);
             if (!success) history.push("/login");
             setUser(user);
+            const fetchWorkouts = await fetch(Endpoints.getWorkouts, {
+                method: "POST",
+                body: JSON.stringify({
+                    UserID: user.id,
+                }),
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
         } catch (e) {
             setErrors([e.toString()]);
         } finally {
@@ -64,10 +74,11 @@ const Logs = ({ history }) => {
                     <div>
                         {user && (
                             <div>
-                                <h1>Welcome, {user && user.name}</h1>
+                                <h1>Welcome, {user && user.username}</h1>
+                                <h1>Your Id is {user && user.id}</h1>
                                 <p>{user && user.email}</p>
                                 <br />
-                                <Searchbar />
+                                <Searchbar userID={user.id} />
                                 <br />
                                 <button onClick={logout}>logout</button>
                             </div>

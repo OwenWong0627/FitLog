@@ -33,6 +33,8 @@ func (a *App) httpServer(db *sql.DB) *fiber.App {
 	}))
 
 	api.Post("/exercises", a.Exercises)
+	api.Post("/addWorkout", WithDB(a.AddWorkout, db))
+	api.Post("/getWorkouts", WithDB(a.GetWorkouts, db))
 
 	api.Post("/login", WithDB(a.Login, db))
 	api.Post("/register", WithDB(a.CreateUser, db))
