@@ -1,9 +1,10 @@
 {
-  "name": "go-auth",
+  "name": "fitlog",
   "version": "0.1.0",
-  "description": "authentication with react and go",
+  "description": "React and go fitness app",
   "private": true,
   "dependencies": {
+    "@reach/combobox": "0.11.2",
     "axios": "^1.2.3",
     "eslint-plugin-prettier": "^4.0.0",
     "react": "^16.8.6",
@@ -19,7 +20,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/IsraelAdura/go-postgres-jwt-react-starter.git"
+    "url": "git+https://github.com/OwenWong0627/FitLog.git"
   },
   "keywords": [
     "go",
@@ -28,13 +29,14 @@
     "react-router",
     "postgres"
   ],
-  "author": "israeladura",
+  "author": "owenwong0627",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/IsraelAdura/go-postgres-jwt-react-starter"
+    "url": "https://github.com/OwenWong0627/FitLog"
   },
-  "homepage": "https://github.com/IsraelAdura/go-postgres-jwt-react-starter#readme",
+  "homepage": "https://github.com/OwenWong0627/FitLog#readme",
   "devDependencies": {
+    "@expo/webpack-config": "^0.17.4",
     "eslint": "^7.32.0",
     "eslint-config-standard": "^16.0.3",
     "eslint-plugin-import": "^2.24.2",

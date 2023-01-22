@@ -6,4 +6,5 @@ export const Endpoints = {
   otp: `${apiURl}/api/otp`,
   workouts: `${apiURl}/api/workouts`,
   logout: `${apiURl}/api/logout`,
+  getExercises: `${apiURl}/api/exercises`,
 }

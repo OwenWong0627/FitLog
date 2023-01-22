@@ -13,6 +13,7 @@ const (
 	POSTGRES_PASSWORD    = "POSTGRES_PASSWORD"
 	POSTGRES_DB          = "POSTGRES_DB"
 	CLIENT_URL           = "CLIENT_URL"
+	APi_NINJA_URL        = "https://api.api-ninjas.com/"
 	SERVER_PORT          = "SERVER_PORT"
 	JWT_KEY              = "JWT_KEY"
 	RUN_MIGRATION        = "RUN_MIGRATION"
@@ -23,6 +24,7 @@ const (
 	APP_CLIENTSECRET     = "APP_CLIENTSECRET"
 	AWS_ACCESS_KEY       = "AWS_ACCESS_KEY"
 	AWS_SECRET_KEY       = "AWS_SECRET_KEY"
+	API_NINJA_API_KEY    = "API_NINJA_API_KEY"
 )
 
 type ConfigType map[string]string
@@ -40,6 +42,7 @@ var Config = ConfigType{
 	APP_CLIENTSECRET:     "",
 	AWS_ACCESS_KEY:       "",
 	AWS_SECRET_KEY:       "",
+	API_NINJA_API_KEY:    "",
 	POSTGRES_SERVER_HOST: "localhost",
 }
 
@@ -49,7 +52,7 @@ func InitConfig() {
 	if exists && environment == "test" {
 		envFilePath, _ = filepath.Abs("../.env.test")
 	} else {
-		envFilePath, _ = filepath.Abs("../.env")
+		envFilePath, _ = filepath.Abs("../.env.local")
 	}
 	if err := godotenv.Load(envFilePath); err != nil {
 		log.WithField("reason", err.Error()).Fatal("No .env file found")
@@ -67,6 +70,7 @@ func InitConfig() {
 		APP_CLIENTSECRET:  true,
 		AWS_ACCESS_KEY:    true,
 		AWS_SECRET_KEY:    true,
+		API_NINJA_API_KEY: true,
 	}
 
 	for key := range Config {

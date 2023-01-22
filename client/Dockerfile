@@ -3,7 +3,7 @@ FROM node:alpine
 RUN apk update && apk upgrade && \
     apk add --no-cache bash make yarn
 
-LABEL maintainer="Israel A."
+LABEL maintainer="Owen Wong"
 
 WORKDIR /app
 

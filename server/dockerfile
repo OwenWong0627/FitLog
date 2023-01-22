@@ -3,7 +3,7 @@ FROM golang:1.19-alpine
 RUN apk update && apk upgrade && \
     apk add --no-cache make
 
-LABEL maintainer="Israel A."
+LABEL maintainer="Owen Wong"
 
 WORKDIR /app
 
